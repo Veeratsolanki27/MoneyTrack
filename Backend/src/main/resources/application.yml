@@ -3,24 +3,25 @@ server:
 
 spring:
   datasource:
-    # Connects to MySQL Workbench by default. You can override with environment variable DATABASE_URL
-    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/money_manager_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${DATABASE_USERNAME:root}
-    password: ${DATABASE_PASSWORD:root}
-    driver-class-name: ${DATABASE_DRIVER:com.mysql.cj.jdbc.Driver}
+    # Supports Neon PostgreSQL, Supabase, Render PostgreSQL, or local MySQL
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/neondb?sslmode=require}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:}
+    driver-class-name: ${DATABASE_DRIVER:org.postgresql.Driver}
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: 5
+      minimum-idle: 1
       idle-timeout: 30000
-      connection-timeout: 20000
+      max-lifetime: 60000
+      connection-timeout: 30000
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -38,4 +39,4 @@ jwt:
   expirationMs: 86400000 # 24 hours
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,https://*.netlify.app}
