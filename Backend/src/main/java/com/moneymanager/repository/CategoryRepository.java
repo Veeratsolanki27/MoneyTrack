@@ -1,0 +1,15 @@
+package com.moneymanager.repository;
+
+import com.moneymanager.entity.Category;
+import com.moneymanager.entity.TransactionType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface CategoryRepository extends JpaRepository<Category, Long> {
+    List<Category> findByUserIdOrUserIsNullOrderByIdAsc(Long userId);
+    List<Category> findByUserIdAndType(Long userId, TransactionType type);
+}
+
