@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -16,38 +17,43 @@ public class DatabaseConfig {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseConfig.class);
 
+    @Value("${spring.datasource.url}")
+    private String springUrl;
+
+    @Value("${spring.datasource.username:}")
+    private String springUsername;
+
+    @Value("${spring.datasource.password:}")
+    private String springPassword;
+
     @Bean
     @Primary
     public DataSource dataSource() {
-        // Read directly from Render environment variables
-        String dbUrl = System.getenv("DATABASE_URL");
-        if (dbUrl == null || dbUrl.isBlank()) {
-            dbUrl = System.getProperty("DATABASE_URL");
-        }
-
-        String username = System.getenv("DATABASE_USERNAME");
-        String password = System.getenv("DATABASE_PASSWORD");
-
         log.info("==== DATABASE INITIALIZATION ====");
 
+        String dbUrl = springUrl;
+        String username = springUsername;
+        String password = springPassword;
+
+        // Check if environment has a direct override
+        String envDb = System.getenv("DATABASE_URL");
+        if (envDb != null && !envDb.isBlank()) {
+            dbUrl = envDb;
+        }
+
         if (dbUrl == null || dbUrl.isBlank()) {
-            log.error("FATAL: DATABASE_URL environment variable is completely empty or not set in Render!");
-            throw new IllegalStateException("DATABASE_URL environment variable is missing in Render. Please set DATABASE_URL in Render Dashboard -> Environment!");
+            dbUrl = "jdbc:postgresql://ep-proud-boat-be61gqr6-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require";
         }
 
         dbUrl = dbUrl.trim();
-        // Remove surrounding quotes if user pasted with quotes
-        if (dbUrl.startsWith("\"") && dbUrl.endsWith("\"")) {
-            dbUrl = dbUrl.substring(1, dbUrl.length() - 1).trim();
-        }
-        if (dbUrl.startsWith("'") && dbUrl.endsWith("'")) {
+        if ((dbUrl.startsWith("\"") && dbUrl.endsWith("\"")) || (dbUrl.startsWith("'") && dbUrl.endsWith("'"))) {
             dbUrl = dbUrl.substring(1, dbUrl.length() - 1).trim();
         }
 
         HikariConfig config = new HikariConfig();
         config.setDriverClassName("org.postgresql.Driver");
 
-        // Format 1: URI format: postgresql://username:password@host:port/database or postgres://...
+        // Format 1: PostgreSQL URI format: postgresql://username:password@host/database
         if (dbUrl.startsWith("postgres://") || dbUrl.startsWith("postgresql://")) {
             try {
                 String cleanUri = dbUrl.replaceFirst("^postgres(ql)?://", "http://");
@@ -61,8 +67,6 @@ public class DatabaseConfig {
                 String finalJdbcUrl = "jdbc:postgresql://" + host + ":" + port + "/" + database + "?sslmode=require";
                 config.setJdbcUrl(finalJdbcUrl);
 
-                log.info("Connecting to Neon host: {} port: {} database: {}", host, port, database);
-
                 if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
                     String[] userParts = uri.getUserInfo().split(":", 2);
                     config.setUsername(userParts[0]);
@@ -71,25 +75,23 @@ public class DatabaseConfig {
                     }
                 }
             } catch (Exception e) {
-                log.warn("Could not parse as URI, attempting direct jdbc: prefix: {}", e.getMessage());
                 config.setJdbcUrl(dbUrl.startsWith("jdbc:") ? dbUrl : "jdbc:" + dbUrl);
             }
         } 
-        // Format 2: Already JDBC format: jdbc:postgresql://host:port/database...
+        // Format 2: Already JDBC format: jdbc:postgresql://...
         else if (dbUrl.startsWith("jdbc:postgresql://")) {
             if (!dbUrl.contains("sslmode=")) {
                 dbUrl += (dbUrl.contains("?") ? "&" : "?") + "sslmode=require";
             }
             config.setJdbcUrl(dbUrl);
-            log.info("Using standard JDBC URL with sslmode=require");
         } else {
             config.setJdbcUrl("jdbc:postgresql://" + dbUrl);
         }
 
-        if (username != null && !username.isBlank()) {
+        if (username != null && !username.isBlank() && config.getUsername() == null) {
             config.setUsername(username);
         }
-        if (password != null && !password.isBlank()) {
+        if (password != null && !password.isBlank() && config.getPassword() == null) {
             config.setPassword(password);
         }
 
